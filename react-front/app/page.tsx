@@ -40,9 +40,12 @@ export default function Home() {
     e.target.value = "";
   }
 
-  function handleRemoveImage(id: string) {
-    setImages((prev) => prev.filter((image) => image.id !== id));
-    setPreview((prev) => (prev?.id === id ? null : prev));
+  async function handleRemoveImage(id: string) {
+    const res = await fetch(`${API_URL}/images/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setImages((prev) => prev.filter((image) => image.id !== id));
+      setPreview((prev) => (prev?.id === id ? null : prev));
+    }
   }
 
   return (
