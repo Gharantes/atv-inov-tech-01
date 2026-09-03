@@ -7,7 +7,11 @@ authors = [
     { email = "Gharantes@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.141.1",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.52.4",
+]
 
 [project.scripts]
 py-api = "py_api:main"
