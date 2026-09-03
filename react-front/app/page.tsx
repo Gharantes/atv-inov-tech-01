@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SavedImage = {
   id: string;
@@ -8,30 +8,35 @@ type SavedImage = {
   name: string;
 };
 
-const DUMMY_IMAGES: SavedImage[] = [
-  { id: "1", url: "https://picsum.photos/id/10/400/300", name: "forest.jpg" },
-  { id: "2", url: "https://picsum.photos/id/20/400/300", name: "laptop.jpg" },
-  { id: "3", url: "https://picsum.photos/id/30/400/300", name: "keyboard.jpg" },
-  { id: "4", url: "https://picsum.photos/id/40/400/300", name: "plant.jpg" },
-  { id: "5", url: "https://picsum.photos/id/50/400/300", name: "mountains.jpg" },
-  { id: "6", url: "https://picsum.photos/id/60/400/300", name: "road.jpg" },
-];
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function Home() {
-  const [images, setImages] = useState<SavedImage[]>(DUMMY_IMAGES);
+  const [images, setImages] = useState<SavedImage[]>([]);
   const [preview, setPreview] = useState<SavedImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  useEffect(() => {
+    fetch(`${API_URL}/images`)
+      .then((res) => res.json())
+      .then(setImages)
+      .catch(() => {});
+  }, []);
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const newImage: SavedImage = {
-      id: Date.now().toString(),
-      url: URL.createObjectURL(file),
-      name: file.name,
-    };
-    setImages((prev) => [newImage, ...prev]);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_URL}/images`, {
+      method: "POST",
+      body: formData,
+    });
+    if (res.ok) {
+      const newImage: SavedImage = await res.json();
+      setImages((prev) => [newImage, ...prev]);
+    }
     e.target.value = "";
   }
 
