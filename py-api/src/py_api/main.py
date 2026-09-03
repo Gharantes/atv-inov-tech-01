@@ -1,15 +1,13 @@
-import uuid
-
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from .database import Base, engine, get_db
+from .models import ImageRecord
 
-class Image(BaseModel):
-    id: str
-    url: str
-    name: str
-
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Image Gallery API")
 
@@ -20,16 +18,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_PLACEHOLDER_PHOTO_IDS = [10, 20, 30, 40, 50, 60]
 
-_images: list[Image] = [
-    Image(id="1", url="https://picsum.photos/id/10/400/300", name="forest.jpg"),
-    Image(id="2", url="https://picsum.photos/id/20/400/300", name="laptop.jpg"),
-    Image(id="3", url="https://picsum.photos/id/30/400/300", name="keyboard.jpg"),
-    Image(id="4", url="https://picsum.photos/id/40/400/300", name="plant.jpg"),
-    Image(id="5", url="https://picsum.photos/id/50/400/300", name="mountains.jpg"),
-    Image(id="6", url="https://picsum.photos/id/60/400/300", name="road.jpg"),
-]
+class ImageOut(BaseModel):
+    id: str
+    name: str
+    url: str
+
+
+def to_image_out(record: ImageRecord, request: Request) -> ImageOut:
+    base_url = str(request.base_url).rstrip("/")
+    return ImageOut(id=record.id, name=record.name, url=f"{base_url}/images/{record.id}/file")
 
 
 @app.get("/")
@@ -38,25 +36,36 @@ def root() -> dict:
 
 
 @app.post("/images", status_code=201)
-def upload_image(file: UploadFile) -> Image:
-    photo_id = _PLACEHOLDER_PHOTO_IDS[len(_images) % len(_PLACEHOLDER_PHOTO_IDS)]
-    image = Image(
-        id=str(uuid.uuid4()),
-        url=f"https://picsum.photos/id/{photo_id}/400/300",
-        name=file.filename or "upload.jpg",
+async def upload_image(request: Request, file: UploadFile, db: Session = Depends(get_db)) -> ImageOut:
+    data = await file.read()
+    record = ImageRecord(
+        name=file.filename or "upload",
+        content_type=file.content_type or "application/octet-stream",
+        data=data,
     )
-    _images.insert(0, image)
-    return image
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return to_image_out(record, request)
 
 
 @app.get("/images")
-def list_images() -> list[Image]:
-    return _images
+def list_images(request: Request, db: Session = Depends(get_db)) -> list[ImageOut]:
+    records = db.query(ImageRecord).order_by(ImageRecord.created_at.desc()).all()
+    return [to_image_out(record, request) for record in records]
 
 
 @app.get("/images/{image_id}")
-def get_image(image_id: str) -> Image:
-    for image in _images:
-        if image.id == image_id:
-            return image
-    raise HTTPException(status_code=404, detail="Image not found")
+def get_image(image_id: str, request: Request, db: Session = Depends(get_db)) -> ImageOut:
+    record = db.get(ImageRecord, image_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return to_image_out(record, request)
+
+
+@app.get("/images/{image_id}/file")
+def get_image_file(image_id: str, db: Session = Depends(get_db)) -> Response:
+    record = db.get(ImageRecord, image_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return Response(content=record.data, media_type=record.content_type)
