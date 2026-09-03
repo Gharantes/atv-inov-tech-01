@@ -35,6 +35,11 @@ export default function Home() {
     e.target.value = "";
   }
 
+  function handleRemoveImage(id: string) {
+    setImages((prev) => prev.filter((image) => image.id !== id));
+    setPreview((prev) => (prev?.id === id ? null : prev));
+  }
+
   return (
     <div className="flex flex-col flex-1 items-center bg-zinc-50 dark:bg-black">
       <main className="flex flex-1 w-full max-w-4xl flex-col gap-8 py-16 px-6">
@@ -68,12 +73,20 @@ export default function Home() {
               <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
                 {image.name}
               </p>
-              <button
-                onClick={() => setPreview(image)}
-                className="rounded-full border border-black/[.08] px-4 py-1.5 text-sm hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-              >
-                Preview
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPreview(image)}
+                  className="flex-1 rounded-full border border-black/[.08] px-4 py-1.5 text-sm hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                >
+                  Preview
+                </button>
+                <button
+                  onClick={() => handleRemoveImage(image.id)}
+                  className="flex-1 rounded-full border border-red-600/20 px-4 py-1.5 text-sm text-red-600 hover:bg-red-600/10 dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-400/10"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           ))}
         </div>
